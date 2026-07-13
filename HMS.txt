@@ -1,0 +1,166 @@
+-- ============================================================
+--   HOSTEL MANAGEMENT SYSTEM - DATABASE SETUP
+--   Run this fully in MySQL Workbench before launching the app
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS hostel_db;
+USE hostel_db;
+
+-- ─── DROP TABLES (clean reset) ───────────────────────────────
+DROP TABLE IF EXISTS fee_payments;
+DROP TABLE IF EXISTS queries;
+DROP TABLE IF EXISTS leave_requests;
+DROP TABLE IF EXISTS students;
+DROP TABLE IF EXISTS rooms;
+DROP TABLE IF EXISTS admin;
+
+-- ─── ROOMS TABLE ─────────────────────────────────────────────
+CREATE TABLE rooms (
+    room_id      INT PRIMARY KEY AUTO_INCREMENT,
+    room_number  VARCHAR(10) NOT NULL UNIQUE,
+    room_type    ENUM('Single','Double','Triple') NOT NULL,
+    capacity     INT NOT NULL,
+    occupied     INT DEFAULT 0,
+    floor_no     INT NOT NULL,
+    monthly_fee  DECIMAL(10,2) NOT NULL
+);
+
+-- ─── STUDENTS TABLE ──────────────────────────────────────────
+CREATE TABLE students (
+    student_id   INT PRIMARY KEY AUTO_INCREMENT,
+    name         VARCHAR(100) NOT NULL,
+    email        VARCHAR(100) NOT NULL UNIQUE,
+    password     VARCHAR(100) NOT NULL,
+    phone        VARCHAR(15),
+    course       VARCHAR(100),
+    year         INT,
+    room_id      INT,
+    status       ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
+    join_date    DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (room_id) REFERENCES rooms(room_id) ON DELETE SET NULL
+);
+
+-- ─── FEE PAYMENTS TABLE (yearly: total / paid / pending) ─────
+CREATE TABLE fee_payments (
+    payment_id     INT PRIMARY KEY AUTO_INCREMENT,
+    student_id     INT NOT NULL,
+    total_fee      DECIMAL(10,2) NOT NULL,
+    paid_amount    DECIMAL(10,2) DEFAULT 0.00,
+    year           INT NOT NULL,
+    last_paid_date DATE,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
+);
+
+-- ─── LEAVE REQUESTS TABLE ────────────────────────────────────
+CREATE TABLE leave_requests (
+    leave_id     INT PRIMARY KEY AUTO_INCREMENT,
+    student_id   INT NOT NULL,
+    from_date    DATE NOT NULL,
+    to_date      DATE NOT NULL,
+    reason       TEXT,
+    status       ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
+    applied_on   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
+);
+
+-- ─── QUERIES / FEEDBACK TABLE ────────────────────────────────
+CREATE TABLE queries (
+    query_id     INT PRIMARY KEY AUTO_INCREMENT,
+    student_id   INT NOT NULL,
+    subject      VARCHAR(200) NOT NULL,
+    message      TEXT NOT NULL,
+    reply        TEXT,
+    status       ENUM('Open','Resolved') DEFAULT 'Open',
+    submitted_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
+);
+
+-- ─── ADMIN TABLE ─────────────────────────────────────────────
+CREATE TABLE admin (
+    admin_id     INT PRIMARY KEY AUTO_INCREMENT,
+    username     VARCHAR(50) NOT NULL UNIQUE,
+    password     VARCHAR(100) NOT NULL
+);
+
+-- ============================================================
+--   SEED DATA
+-- ============================================================
+
+-- Default Admin (username: admin | password: admin123)
+INSERT INTO admin (username, password) VALUES ('admin', 'admin123');
+
+-- Rooms
+INSERT INTO rooms (room_number, room_type, capacity, occupied, floor_no, monthly_fee) VALUES
+('101', 'Single', 1, 1, 1, 5000.00),
+('102', 'Double', 2, 2, 1, 4000.00),
+('103', 'Double', 2, 1, 1, 4000.00),
+('104', 'Triple', 3, 3, 1, 3000.00),
+('201', 'Single', 1, 1, 2, 5000.00),
+('202', 'Double', 2, 2, 2, 4000.00),
+('203', 'Triple', 3, 1, 2, 3000.00),
+('204', 'Single', 1, 1, 2, 5000.00);
+
+-- 10 Students (password for all: student123)
+INSERT INTO students (name, email, password, phone, course, year, room_id, status, join_date) VALUES
+('Aarav Sharma',    'aarav@gmail.com',    'student123', '9876543210', 'B.Tech CSE',     2, 1, 'Approved', '2024-06-01'),
+('Priya Nair',      'priya@gmail.com',    'student123', '9876543211', 'B.Tech ECE',     1, 2, 'Approved', '2024-06-02'),
+('Rohan Verma',     'rohan@gmail.com',    'student123', '9876543212', 'BCA',            3, 2, 'Approved', '2024-06-03'),
+('Sneha Pillai',    'sneha@gmail.com',    'student123', '9876543213', 'B.Sc Physics',   2, 3, 'Approved', '2024-06-04'),
+('Arjun Mehta',     'arjun@gmail.com',    'student123', '9876543214', 'B.Tech Mech',    1, 4, 'Approved', '2024-06-05'),
+('Kavya Reddy',     'kavya@gmail.com',    'student123', '9876543215', 'MBA',            1, 4, 'Approved', '2024-06-06'),
+('Vikram Singh',    'vikram@gmail.com',   'student123', '9876543216', 'B.Tech Civil',   3, 4, 'Approved', '2024-06-07'),
+('Ananya Iyer',     'ananya@gmail.com',   'student123', '9876543217', 'B.Com',          2, 5, 'Approved', '2024-06-08'),
+('Nikhil Joshi',    'nikhil@gmail.com',   'student123', '9876543218', 'MCA',            2, 6, 'Approved', '2024-06-09'),
+('Deepika Patel',   'deepika@gmail.com',  'student123', '9876543219', 'B.Sc Chemistry', 1, 6, 'Approved', '2024-06-10');
+
+-- Fee records: total annual fee = monthly_fee x 12
+-- Room type Single = ₹5000/month → ₹60,000/year
+-- Room type Double = ₹4000/month → ₹48,000/year
+-- Room type Triple = ₹3000/month → ₹36,000/year
+INSERT INTO fee_payments (student_id, total_fee, paid_amount, year, last_paid_date) VALUES
+(1,  60000.00, 35000.00, 2026, '2026-02-03'),  -- Aarav  (Single room)
+(2,  48000.00, 48000.00, 2026, '2026-01-06'),  -- Priya  (Double room) - fully paid
+(3,  48000.00, 20000.00, 2026, '2026-01-07'),  -- Rohan  (Double room)
+(4,  48000.00,     0.00, 2026, NULL),           -- Sneha  (Double room) - not paid
+(5,  36000.00,     0.00, 2026, NULL),           -- Arjun  (Triple room) - not paid
+(6,  36000.00, 36000.00, 2026, '2026-01-10'),  -- Kavya  (Triple room) - fully paid
+(7,  36000.00, 15000.00, 2026, '2026-02-01'),  -- Vikram (Triple room)
+(8,  60000.00, 60000.00, 2026, '2026-01-08'),  -- Ananya (Single room) - fully paid
+(9,  48000.00, 10000.00, 2026, '2026-01-09'),  -- Nikhil (Double room)
+(10, 48000.00, 48000.00, 2026, '2026-01-09');  -- Deepika (Double room) - fully paid
+
+-- Sample Leave Requests
+INSERT INTO leave_requests (student_id, from_date, to_date, reason, status) VALUES
+(1, '2025-02-10', '2025-02-15', 'Family function at hometown', 'Approved'),
+(3, '2025-02-20', '2025-02-22', 'Medical checkup',            'Pending'),
+(5, '2025-03-01', '2025-03-05', 'Festival holidays',          'Pending');
+
+-- Sample Queries
+INSERT INTO queries (student_id, subject, message, status) VALUES
+(2, 'Wi-Fi Issue',   'The Wi-Fi in room 102 is very slow. Please fix it.', 'Open'),
+(4, 'Water Problem', 'No hot water supply since 2 days.',                  'Open'),
+(8, 'Room Cleaning', 'Requesting extra cleaning service for room 201.',    'Resolved');
+
+-- ============================================================
+--  FIX: Recalculate total_fee for ALL students based on their
+--       actual room's monthly_fee × 12.
+--  Run this ONCE in MySQL Workbench to correct existing records
+--  (e.g. Dhinesh showing ₹36,000 instead of ₹48,000).
+-- ============================================================
+
+UPDATE fee_payments fp
+JOIN students s ON fp.student_id = s.student_id
+JOIN rooms r    ON s.room_id     = r.room_id
+SET fp.total_fee = r.monthly_fee * 12
+WHERE s.room_id IS NOT NULL;
+
+-- Verify the fix:
+SELECT s.name, r.room_number, r.monthly_fee,
+       r.monthly_fee * 12   AS correct_annual_fee,
+       fp.total_fee          AS stored_annual_fee,
+       fp.paid_amount,
+       (fp.total_fee - fp.paid_amount) AS pending
+FROM students s
+JOIN rooms r        ON s.room_id     = r.room_id
+JOIN fee_payments fp ON s.student_id = fp.student_id
+ORDER BY s.student_id;
